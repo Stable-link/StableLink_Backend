@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String?  @unique
+  walletAddress String?  @map("wallet_address")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  organizationMemberships OrganizationMember[]
+}
+
+model Organization {
+  id                 String   @id @default(cuid())
+  name               String
+  primaryWallet      String   @map("primary_wallet")
+  defaultPlatformFee Int      @default(300) @map("default_platform_fee")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  members   OrganizationMember[]
+  invoices  Invoice[]
+  apiKeys   ApiKey[]
+  webhooks  Webhook[]
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String   @map("user_id")
+  role           String   // admin | finance | viewer
+  status         String   @default("active")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@map("organization_members")
+}
+
+model Invoice {
+  id                String    @id @default(cuid())
+  onchainInvoiceId  BigInt    @map("onchain_invoice_id")
+  organizationId    String    @map("organization_id")
+  creatorWallet     String    @map("creator_wallet")
+  clientName        String?   @map("client_name")
+  clientEmail       String?   @map("client_email")
+  token             String
+  amount            String
+  status            String   @default("draft") // draft | paid | withdrawn
+  txHash            String?   @map("tx_hash")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  paidAt            DateTime? @map("paid_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([onchainInvoiceId])
+  @@index([creatorWallet])
+  @@map("invoices")
+}
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  liveKey        String?  @map("live_key")
+  testKey        String?  @map("test_key")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+model Webhook {
+  id                String   @id @default(cuid())
+  organizationId    String   @map("organization_id")
+  url               String
+  subscribedEvents  String[] @map("subscribed_events")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("webhooks")
+}
+
+model IndexerState {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  lastBlock  BigInt   @map("last_block")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("indexer_state")
+}

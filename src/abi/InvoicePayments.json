@@ -1,0 +1,6 @@
+[
+  {"type":"event","name":"InvoiceCreated","inputs":[{"name":"invoiceId","type":"uint256","indexed":true},{"name":"creator","type":"address","indexed":true},{"name":"token","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false},
+  {"type":"event","name":"InvoicePaid","inputs":[{"name":"invoiceId","type":"uint256","indexed":true},{"name":"payer","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false},
+  {"type":"event","name":"InvoiceCancelled","inputs":[{"name":"invoiceId","type":"uint256","indexed":true}],"anonymous":false},
+  {"type":"event","name":"Withdrawal","inputs":[{"name":"user","type":"address","indexed":true},{"name":"token","type":"address","indexed":true},{"name":"amount","type":"uint256","indexed":false}],"anonymous":false}
+]
