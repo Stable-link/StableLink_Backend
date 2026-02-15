@@ -53,6 +53,8 @@ model Invoice {
   clientEmail       String?   @map("client_email")
   token             String
   amount            String
+  description       String?   @map("description")
+  dueDate           DateTime? @map("due_date")
   status            String   @default("draft") // draft | paid | withdrawn
   txHash            String?   @map("tx_hash")
   createdAt         DateTime  @default(now()) @map("created_at")
@@ -88,6 +90,18 @@ model Webhook {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@map("webhooks")
+}
+
+model Withdrawal {
+  id        String   @id @default(cuid())
+  wallet    String   @map("wallet")
+  token     String   @map("token")
+  amountRaw String   @map("amount_raw")
+  txHash    String   @unique @map("tx_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([wallet])
+  @@map("withdrawals")
 }
 
 model IndexerState {

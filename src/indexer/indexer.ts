@@ -165,6 +165,17 @@ export function startIndexer(): void {
       for (const ev of withdrawal) {
         if (!(ev instanceof EventLog)) continue;
         const args = ev.args as unknown as { user: string; token: string; amount: bigint };
+        const txHash = ev.transactionHash ?? "";
+        await prisma.withdrawal.upsert({
+          where: { txHash },
+          create: {
+            wallet: args.user.toLowerCase(),
+            token: args.token.toLowerCase(),
+            amountRaw: args.amount.toString(),
+            txHash,
+          },
+          update: {},
+        });
         await dispatchWebhooks("withdrawal.completed", {
           user: args.user,
           token: args.token,

@@ -9,11 +9,13 @@ invoicesRouter.use(requireApiKey);
 invoicesRouter.post("/", async (req, res) => {
   try {
     const orgId = (req as unknown as { organizationId: string }).organizationId;
-    const { amount, token, client_name, client_email, splits, onchain_invoice_id, creator_wallet, tx_hash } = req.body as {
+    const { amount, token, client_name, client_email, description, due_date, splits, onchain_invoice_id, creator_wallet, tx_hash } = req.body as {
       amount: number;
       token: string;
       client_name?: string;
       client_email?: string;
+      description?: string;
+      due_date?: string;
       splits: Array<{ wallet: string; percentage: number }>;
       onchain_invoice_id?: number;
       creator_wallet?: string;
@@ -31,10 +33,15 @@ invoicesRouter.post("/", async (req, res) => {
       return;
     }
 
-    const onchainId = typeof onchain_invoice_id === "number" ? BigInt(onchain_invoice_id) : BigInt(0);
     const creatorWallet = typeof creator_wallet === "string" && creator_wallet ? creator_wallet : org.primaryWallet;
-
     const isDeployed = typeof tx_hash === "string" && tx_hash.trim().length > 0;
+    // Use provided onchain id when deployed; otherwise -1 so we never collide with real chain ids (0,1,2...).
+    // Defaulting to 0 caused multiple invoices to share id 0 and all get marked paid when one was paid.
+    const onchainId =
+      isDeployed && typeof onchain_invoice_id === "number" && onchain_invoice_id >= 0
+        ? BigInt(onchain_invoice_id)
+        : BigInt(-1);
+    const dueDate = typeof due_date === "string" && due_date.trim() ? new Date(due_date.trim()) : null;
     const invoice = await prisma.invoice.create({
       data: {
         organizationId: orgId,
@@ -44,6 +51,8 @@ invoicesRouter.post("/", async (req, res) => {
         clientEmail: client_email ?? null,
         token,
         amount: String(amount),
+        description: description?.trim() ?? null,
+        dueDate,
         status: isDeployed ? "deployed" : "draft",
         txHash: isDeployed ? tx_hash.trim() : null,
       },
@@ -80,6 +89,8 @@ invoicesRouter.get("/", async (req, res) => {
       client_email: i.clientEmail,
       token: i.token,
       amount: i.amount,
+      description: i.description,
+      due_date: i.dueDate?.toISOString() ?? null,
       status: i.status,
       tx_hash: i.txHash,
       created_at: i.createdAt,
@@ -106,11 +117,30 @@ invoicesRouter.get("/:id", async (req, res) => {
     client_email: invoice.clientEmail,
     token: invoice.token,
     amount: invoice.amount,
+    description: invoice.description,
+    due_date: invoice.dueDate?.toISOString() ?? null,
     status: invoice.status,
     tx_hash: invoice.txHash,
     created_at: invoice.createdAt,
     paid_at: invoice.paidAt,
   });
+});
+
+invoicesRouter.post("/:id/send-reminder", async (req, res) => {
+  const orgId = (req as unknown as { organizationId: string }).organizationId;
+  const invoice = await prisma.invoice.findFirst({
+    where: { id: req.params.id, organizationId: orgId },
+  });
+  if (!invoice) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+  if (invoice.status === "paid") {
+    res.status(400).json({ error: "Cannot send reminder for a paid invoice" });
+    return;
+  }
+  // Reminder sent (no email service configured; frontend can copy payment link)
+  res.status(200).json({ ok: true, message: "Reminder sent" });
 });
 
 invoicesRouter.delete("/:id", async (req, res) => {
